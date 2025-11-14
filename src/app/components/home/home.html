@@ -1,0 +1,76 @@
+<div class="p-4 max-w-4xl mx-auto space-y-3">
+  <!-- Top bar -->
+  <div class="flex items-center gap-3">
+    <button (click)="pickDirectory()" [disabled]="scanning()" class="btn btn-primary">
+      {{ scanning() ? 'Lendo…' : 'Escolher pasta' }}
+    </button>
+
+    @if (pickedFolderName()) {
+      <div class="text-sm text-gray-600">
+        Pasta: <strong>{{ pickedFolderName() }}</strong>
+      </div>
+    }
+  </div>
+
+  <!-- Botões SEMPRE visíveis -->
+  <div class="flex items-center justify-between border rounded p-2">
+    <div class="flex items-center gap-2">
+      <button (click)="sendFiles()" class="btn btn-success">Send</button>
+      <button (click)="discardFiles()" class="btn btn-ghost">Discard</button>
+    </div>
+
+    <div class="text-sm text-gray-600">
+      Selecionados: <strong>{{ selectedCount() }}</strong> / {{ totalFiles() }}
+      <span class="mx-2">•</span>
+      <button type="button" class="link" (click)="selectAll()">Select all</button>
+      <span class="mx-1">|</span>
+      <button type="button" class="link" (click)="clearSelection()">Clear</button>
+    </div>
+  </div>
+
+  @if (errorMsg()) {
+    <div class="p-3 rounded bg-red-50 text-red-700">
+      {{ errorMsg() }}
+    </div>
+  }
+
+  <!-- Tabela -->
+  @if (files().length) {
+    <table class="w-full text-sm border border-gray-200">
+      <thead class="bg-gray-50">
+        <tr>
+          <th class="p-2 border-b w-10">
+            <!-- checkbox "select all" do cabeçalho -->
+            <input
+              type="checkbox"
+              [checked]="selectedCount() === totalFiles() && totalFiles() > 0"
+              [indeterminate]="selectedCount() > 0 && selectedCount() < totalFiles()"
+              (change)="onHeaderToggle($event)">
+          </th>
+          <th class="text-left p-2 border-b">Arquivo</th>
+          <th class="text-left p-2 border-b">Tamanho</th>
+          <th class="text-left p-2 border-b">Modificado em</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (f of files(); track f.name) {
+          <tr class="border-b">
+            <td class="p-2 text-center">
+              <input
+                type="checkbox"
+                [checked]="isSelected(f.name)"
+                (change)="onRowToggle($event, f.name)">
+            </td>
+            <td class="p-2">{{ f.name }}</td>
+            <td class="p-2 whitespace-nowrap">{{ humanSize(f.size) }}</td>
+            <td class="p-2 whitespace-nowrap">{{ f.lastModified | date:'short' }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  } @else if (pickedFolderName() && !scanning()) {
+    <p class="text-sm text-gray-600">
+      Nenhum <code>.xlsx</code> encontrado nessa pasta.
+    </p>
+  }
+</div>
