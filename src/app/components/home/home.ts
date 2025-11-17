@@ -1,5 +1,6 @@
 import { Component, signal, computed } from '@angular/core';
 import { DatePipe } from '@angular/common';
+import JSZip from 'jszip';
 
 type FileSystemFileHandle = any;
 type FileSystemDirectoryHandle = any;
@@ -8,6 +9,7 @@ interface XlsxFile {
   name: string;
   size: number;
   lastModified: Date;
+  lastSavedBy?: string;
   handle: FileSystemFileHandle;
 }
 
@@ -43,6 +45,29 @@ export class Home {
   }
   clearSelection() { this._selected.set(new Set()); }
 
+  private async getLastSavedByFromXlsx(file: File): Promise<string | undefined> {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const zip = await JSZip.loadAsync(arrayBuffer);
+
+    const coreEntry = zip.file('docProps/core.xml');
+    if (!coreEntry) return undefined;
+
+    const coreXml = await coreEntry.async('text');
+
+    // Parse bem simples só procurando a tag cp:lastModifiedBy
+    const match = coreXml.match(/<cp:lastModifiedBy>([^<]*)<\/cp:lastModifiedBy>/);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+
+    return undefined;
+  } catch (e) {
+    console.warn('Falha ao ler LastSavedBy de', file.name, e);
+    return undefined;
+  }
+}
+
   async pickDirectory() {
     this.errorMsg.set(null);
     this.files.set([]);
@@ -59,10 +84,12 @@ export class Home {
       for await (const [name, handle] of (dirHandle as any).entries()) {
         if (handle.kind === 'file' && name.toLowerCase().endsWith('.xlsx')) {
           const file: File = await handle.getFile();
+          const lastSavedBy = await this.getLastSavedByFromXlsx(file);
           results.push({
             name,
             size: file.size,
             lastModified: new Date(file.lastModified),
+            lastSavedBy,
             handle,
           });
         }
