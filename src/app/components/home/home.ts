@@ -142,7 +142,7 @@ export class Home {
             name,
             size: file.size,
             lastModified: new Date(file.lastModified),
-            lastSavedBy,
+            lastSavedBy: lastSavedBy?.toUpperCase(),
             handle,
           });
         }
