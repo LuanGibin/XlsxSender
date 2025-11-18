@@ -9,7 +9,6 @@ type FileStatus = 'sent' | 'discarded';
 
 interface XlsxFile {
   name: string;
-  size: number;
   lastModified: Date;
   lastSavedBy?: string;
   handle: FileSystemFileHandle;
@@ -140,7 +139,6 @@ export class Home {
 
           results.push({
             name,
-            size: file.size,
             lastModified: new Date(file.lastModified),
             lastSavedBy: lastSavedBy?.toUpperCase(),
             handle,
@@ -239,7 +237,7 @@ export class Home {
       console.log(`Concluído. Sucesso: ${ok}, Falhas: ${fail}.`);
       console.log('botão funcionando');
 
-      // Atualizar status JSON na pasta de origem
+      // Atualizar status JSON na pasta de origem para os ENVIADOS
       if (!this.originDirHandle) {
         console.warn('originDirHandle não definido; não foi possível salvar status na pasta de origem.');
       } else {
@@ -249,12 +247,32 @@ export class Home {
           const key = this.makeStatusKey(item.name, file.size, file.lastModified);
           map[key] = 'sent';
         }
-        await this.saveStatusMapToFolder(this.originDirHandle, map);
-      }
 
-      // Remover da lista e limpar seleção
-      this.files.update(list => list.filter(f => !selectedNames.includes(f.name)));
-      this.clearSelection();
+        // 👉 Verificar itens NÃO enviados e perguntar se quer descartá-los
+        const remaining = this.files().filter(f => !selectedNames.includes(f.name));
+
+        if (remaining.length > 0) {
+          const shouldDiscardRest = window.confirm('Deseja descartar os itens não enviados?');
+          if (shouldDiscardRest) {
+            for (const item of remaining) {
+              const file = await item.handle.getFile();
+              const key = this.makeStatusKey(item.name, file.size, file.lastModified);
+              map[key] = 'discarded';
+            }
+            // Remove também os não enviados da lista
+            const namesToRemove = new Set([...selectedNames, ...remaining.map(f => f.name)]);
+            this.files.update(list => list.filter(f => !namesToRemove.has(f.name)));
+            this.clearSelection();
+            await this.saveStatusMapToFolder(this.originDirHandle, map);
+            return;
+          }
+        }
+
+        // Se não descartou os restantes, remove apenas os enviados
+        await this.saveStatusMapToFolder(this.originDirHandle, map);
+        this.files.update(list => list.filter(f => !selectedNames.includes(f.name)));
+        this.clearSelection();
+      }
 
     } catch (err) {
       if ((err as any)?.name === 'AbortError') {
@@ -264,6 +282,7 @@ export class Home {
       console.error('Erro no sendFiles():', err);
     }
   }
+
 
   // ===== Descartar arquivos selecionados (marca como 'discarded' no JSON da pasta de origem) =====
   async discardFiles() {

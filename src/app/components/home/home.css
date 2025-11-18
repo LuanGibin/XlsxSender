@@ -1,0 +1,51 @@
+.folder-container {
+    background-color: var(--primary-color);
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    gap: 8px;
+}
+
+.sub-folder-container {
+    background-color: var(--secundary-color);
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    gap: 8px;
+}
+
+.text-alert-table-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.table-container {
+    background-color: var(--terciary-color);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.table-header{
+    display: flex;
+    gap: 20px;
+    padding-left: 20px;
+}
+
+.file-item{
+    word-break: break-all;
+}
+
+.table-footer {
+    background-color: var(--primary-color);
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    gap: 10px;
+    padding: 10px;
+}

@@ -1,31 +1,23 @@
-<div class="p-4 max-w-4xl mx-auto space-y-3">
+<div class="main-container">
   <!-- Top bar -->
-  <div class="flex items-center gap-3">
-    <button (click)="pickDirectory()" [disabled]="scanning()" class="btn btn-primary">
-      {{ scanning() ? 'Lendo…' : 'Escolher pasta' }}
+  <div class="folder-container">
+    <button (click)="pickDirectory()" [disabled]="scanning()" class="button">
+      {{ scanning() ? 'Reading…' : 'Choose Folder' }}
     </button>
 
     @if (pickedFolderName()) {
     <div class="text-sm text-gray-600">
-      Pasta: <strong>{{ pickedFolderName() }}</strong>
+      Folder: <strong>{{ pickedFolderName() }}</strong>
     </div>
     }
   </div>
 
-  <!-- Botões SEMPRE visíveis -->
-  <div class="flex items-center justify-between border rounded p-2">
-    <div class="flex items-center gap-2">
-      <button (click)="sendFiles()" class="btn btn-success">Send</button>
-      <button (click)="discardFiles()" class="btn btn-ghost">Discard</button>
-    </div>
-
-    <div class="text-sm text-gray-600">
-      Selecionados: <strong>{{ selectedCount() }}</strong> / {{ totalFiles() }}
-      <span class="mx-2">•</span>
-      <button type="button" class="link" (click)="selectAll()">Select all</button>
-      <span class="mx-1">|</span>
-      <button type="button" class="link" (click)="clearSelection()">Clear</button>
-    </div>
+  <div class="sub-folder-container">
+    Selected: <strong>{{ selectedCount() }}</strong> / {{ totalFiles() }}
+    <span class="mx-2">•</span>
+    <button type="button" class="button" (click)="selectAll()">Select all</button>
+    <span class="mx-1">|</span>
+    <button type="button" class="button" (click)="clearSelection()">Clear</button>
   </div>
 
   @if (errorMsg()) {
@@ -36,38 +28,31 @@
 
   <!-- Tabela -->
   @if (files().length) {
-  <table class="w-full text-sm border border-gray-200">
-    <thead class="bg-gray-50">
-      <tr>
-        <th class="p-2 border-b w-10">
-          <!-- checkbox "select all" do cabeçalho -->
-          <input
-            type="checkbox"
-            [checked]="selectedCount() === totalFiles() && totalFiles() > 0"
-            [indeterminate]="selectedCount() > 0 && selectedCount() < totalFiles()"
-            (change)="onHeaderToggle($event)"
-          />
-        </th>
+  <table class="table-container">
+    <thead>
+      <tr class="table-header">
         <th class="text-left p-2 border-b">Arquivo</th>
-        <th class="text-left p-2 border-b">Tamanho</th>
+        <span>|</span>
         <th class="text-left p-2 border-b">Modificado em</th>
+        <span>|</span>
         <th class="text-left p-2 border-b">Last Saved By</th>
       </tr>
     </thead>
     <tbody>
       @for (f of files(); track f.name) {
-      <tr class="border-b">
-        <td class="p-2 text-center">
+      <tr class="table-items">
+        <td>
           <input
             type="checkbox"
             [checked]="isSelected(f.name)"
             (change)="onRowToggle($event, f.name)"
           />
         </td>
-        <td class="p-2">{{ f.name }}</td>
-        <td class="p-2 whitespace-nowrap">{{ humanSize(f.size) }}</td>
-        <td class="p-2 whitespace-nowrap">{{ f.lastModified | date : 'short' }}</td>
-        <td class="p-2 whitespace-nowrap">
+        <td class="file-item">{{ f.name }}</td>
+        <span>|</span>
+        <td class="file-item">{{ f.lastModified | date : 'short' }}</td>
+        <span>|</span>
+        <td class="file-item">
           {{ f.lastSavedBy || '-' }}
         </td>
       </tr>
@@ -75,6 +60,15 @@
     </tbody>
   </table>
   } @else if (pickedFolderName() && !scanning()) {
-  <p class="text-sm text-gray-600">Nenhum <code>.xlsx</code> encontrado nessa pasta.</p>
+  <p class="text-alert-table-container">
+    Nenhum .xlsx disponível. É provável que não há relatórios novos no momento.
+  </p>
   }
+
+  <div class="flex items-center justify-between border rounded p-2">
+    <div class="table-footer">
+      <button (click)="sendFiles()" class="button button_animated"><span>Send</span></button>
+      <button (click)="discardFiles()" class="button button_animated"><span>Discard</span></button>
+    </div>
+  </div>
 </div>
