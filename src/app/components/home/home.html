@@ -5,9 +5,9 @@
       {{ scanning() ? 'Reading…' : 'Choose Folder' }}
     </button>
 
-    @if (pickedFolderName()) {
+    @if (pickedOriginFolderName()) {
     <div class="text-sm text-gray-600">
-      Folder: <strong>{{ pickedFolderName() }}</strong>
+      Origin Folder: <strong>{{ pickedOriginFolderName() }}</strong>
     </div>
     }
   </div>
@@ -49,9 +49,9 @@
           />
         </td>
         <td class="file-item">{{ f.name }}</td>
-        <span>|</span>
+        <span class="space">|</span>
         <td class="file-item">{{ f.lastModified | date : 'short' }}</td>
-        <span>|</span>
+        <span class="space">|</span>
         <td class="file-item">
           {{ f.lastSavedBy || '-' }}
         </td>
@@ -59,16 +59,22 @@
       }
     </tbody>
   </table>
-  } @else if (pickedFolderName() && !scanning()) {
+  } @else if (pickedOriginFolderName() && !scanning()) {
   <p class="text-alert-table-container">
-    Nenhum .xlsx disponível. É provável que não há relatórios novos no momento.
+    Nenhum arquivo .xlsx disponível. É provável que não há relatórios novos no momento.
   </p>
   }
 
   <div class="flex items-center justify-between border rounded p-2">
     <div class="table-footer">
       <button (click)="sendFiles()" class="button button_animated"><span>Send</span></button>
+      <span>|</span>
       <button (click)="discardFiles()" class="button button_animated"><span>Discard</span></button>
+      @if (pickedDestinationFolderName()) {
+    <div class="text-sm text-gray-600">
+      Destination Folder: <strong>{{ pickedDestinationFolderName() }}</strong>
+    </div>
+    }
     </div>
   </div>
 </div>

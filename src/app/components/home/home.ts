@@ -27,14 +27,17 @@ export class Home {
   errorMsg = signal<string | null>(null);
 
   // ===== Dados base =====
-  pickedFolderName = signal<string | null>(null);
+  pickedOriginFolderName = signal<string | null>(null);
+  pickedDestinationFolderName = signal<string | null>(null);
   files = signal<XlsxFile[]>([]);
   totalFiles = computed(() => this.files().length);
 
   // ===== Seleção por nome =====
   private _selected = signal<Set<string>>(new Set());
   selectedCount = computed(() => this._selected().size);
-  isSelected(name: string) { return this._selected().has(name); }
+  isSelected(name: string) {
+    return this._selected().has(name);
+  }
 
   toggleOne(name: string, checked: boolean) {
     const next = new Set(this._selected());
@@ -48,10 +51,13 @@ export class Home {
     this._selected.set(next);
   }
 
-  clearSelection() { this._selected.set(new Set()); }
+  clearSelection() {
+    this._selected.set(new Set());
+  }
 
   // ===== Pasta de origem e status JSON =====
   private originDirHandle: FileSystemDirectoryHandle | null = null;
+  private destDirHandle: FileSystemDirectoryHandle | null = null;
   private readonly STATUS_FILENAME = 'xlsx-sender-status.json';
 
   private makeStatusKey(name: string, size: number, lastModified: number): string {
@@ -112,13 +118,14 @@ export class Home {
   async pickDirectory() {
     this.errorMsg.set(null);
     this.files.set([]);
-    this.pickedFolderName.set(null);
+    this.pickedOriginFolderName.set(null);
+    this.pickedDestinationFolderName.set(null);
     this.clearSelection();
 
     try {
       const dirHandle: FileSystemDirectoryHandle = await (window as any).showDirectoryPicker();
       this.originDirHandle = dirHandle; // guardar para usar em send/discard
-      this.pickedFolderName.set((dirHandle as any).name ?? '(pasta selecionada)');
+      this.pickedOriginFolderName.set((dirHandle as any).name ?? '(pasta selecionada)');
       this.scanning.set(true);
 
       const statusMap = await this.loadStatusMapFromFolder(dirHandle);
@@ -163,8 +170,12 @@ export class Home {
   humanSize(bytes: number) {
     if (bytes < 1024) return `${bytes} B`;
     const units = ['KB', 'MB', 'GB', 'TB'];
-    let v = bytes / 1024, i = 0;
-    while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+    let v = bytes / 1024,
+      i = 0;
+    while (v >= 1024 && i < units.length - 1) {
+      v /= 1024;
+      i++;
+    }
     return `${v.toFixed(1)} ${units[i]}`;
   }
 
@@ -181,8 +192,8 @@ export class Home {
 
   // ===== Cópia de arquivo para pasta destino =====
   private async copyFileToDir(
-    srcHandle: any,               // FileSystemFileHandle
-    destDir: any,                 // FileSystemDirectoryHandle
+    srcHandle: any, // FileSystemFileHandle
+    destDir: any, // FileSystemDirectoryHandle
     newName: string
   ) {
     const destFileHandle = await destDir.getFileHandle(newName, { create: true });
@@ -205,16 +216,25 @@ export class Home {
         return;
       }
 
-      const selected = this.files().filter(f => selectedNames.includes(f.name));
+      const selected = this.files().filter((f) => selectedNames.includes(f.name));
       if (selected.length === 0) {
         console.warn('Seleção vazia (não casou com a lista atual).');
         return;
       }
 
-      // pasta destino (nuvem mapeada)
-      const destDirHandle: any = await (window as any).showDirectoryPicker({
-        id: 'dest-cloud-folder',
-      });
+      // ===== Pasta destino =====
+      // Só pede a primeira vez; depois reaproveita this.destDirHandle
+      if (!this.destDirHandle) {
+        const pickedDest: any = await (window as any).showDirectoryPicker({
+          id: 'dest-cloud-folder',
+        });
+
+        this.destDirHandle = pickedDest;
+
+        this.pickedDestinationFolderName.set((pickedDest as any).name ?? '(destino)');
+      }
+
+      const destDirHandle: any = this.destDirHandle;
 
       const perm = await destDirHandle.requestPermission?.({ mode: 'readwrite' });
       if (perm === 'denied') {
@@ -222,7 +242,8 @@ export class Home {
         return;
       }
 
-      let ok = 0, fail = 0;
+      let ok = 0,
+        fail = 0;
       for (const item of selected) {
         try {
           await this.copyFileToDir(item.handle, destDirHandle, item.name);
@@ -237,9 +258,11 @@ export class Home {
       console.log(`Concluído. Sucesso: ${ok}, Falhas: ${fail}.`);
       console.log('botão funcionando');
 
-      // Atualizar status JSON na pasta de origem para os ENVIADOS
+      // ===== Atualizar status JSON na pasta de origem =====
       if (!this.originDirHandle) {
-        console.warn('originDirHandle não definido; não foi possível salvar status na pasta de origem.');
+        console.warn(
+          'originDirHandle não definido; não foi possível salvar status na pasta de origem.'
+        );
       } else {
         const map = await this.loadStatusMapFromFolder(this.originDirHandle);
         for (const item of selected) {
@@ -248,8 +271,8 @@ export class Home {
           map[key] = 'sent';
         }
 
-        // 👉 Verificar itens NÃO enviados e perguntar se quer descartá-los
-        const remaining = this.files().filter(f => !selectedNames.includes(f.name));
+        // Verificar itens NÃO enviados e perguntar se quer descartá-los
+        const remaining = this.files().filter((f) => !selectedNames.includes(f.name));
 
         if (remaining.length > 0) {
           const shouldDiscardRest = window.confirm('Deseja descartar os itens não enviados?');
@@ -259,9 +282,8 @@ export class Home {
               const key = this.makeStatusKey(item.name, file.size, file.lastModified);
               map[key] = 'discarded';
             }
-            // Remove também os não enviados da lista
-            const namesToRemove = new Set([...selectedNames, ...remaining.map(f => f.name)]);
-            this.files.update(list => list.filter(f => !namesToRemove.has(f.name)));
+            const namesToRemove = new Set([...selectedNames, ...remaining.map((f) => f.name)]);
+            this.files.update((list) => list.filter((f) => !namesToRemove.has(f.name)));
             this.clearSelection();
             await this.saveStatusMapToFolder(this.originDirHandle, map);
             return;
@@ -270,10 +292,9 @@ export class Home {
 
         // Se não descartou os restantes, remove apenas os enviados
         await this.saveStatusMapToFolder(this.originDirHandle, map);
-        this.files.update(list => list.filter(f => !selectedNames.includes(f.name)));
+        this.files.update((list) => list.filter((f) => !selectedNames.includes(f.name)));
         this.clearSelection();
       }
-
     } catch (err) {
       if ((err as any)?.name === 'AbortError') {
         console.warn('Envio cancelado pelo usuário.');
@@ -282,7 +303,6 @@ export class Home {
       console.error('Erro no sendFiles():', err);
     }
   }
-
 
   // ===== Descartar arquivos selecionados (marca como 'discarded' no JSON da pasta de origem) =====
   async discardFiles() {
@@ -293,7 +313,7 @@ export class Home {
         return;
       }
 
-      const selected = this.files().filter(f => selectedNames.includes(f.name));
+      const selected = this.files().filter((f) => selectedNames.includes(f.name));
       if (selected.length === 0) {
         console.warn('Seleção vazia (não casou com a lista atual).');
         return;
@@ -302,7 +322,9 @@ export class Home {
       console.log('botão funcionando');
 
       if (!this.originDirHandle) {
-        console.warn('originDirHandle não definido; não foi possível salvar status na pasta de origem.');
+        console.warn(
+          'originDirHandle não definido; não foi possível salvar status na pasta de origem.'
+        );
       } else {
         const map = await this.loadStatusMapFromFolder(this.originDirHandle);
         for (const item of selected) {
@@ -314,7 +336,7 @@ export class Home {
       }
 
       // Remover da tabela e limpar seleção
-      this.files.update(list => list.filter(f => !selectedNames.includes(f.name)));
+      this.files.update((list) => list.filter((f) => !selectedNames.includes(f.name)));
       this.clearSelection();
     } catch (err) {
       console.error('Erro no discardFiles():', err);
