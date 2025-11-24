@@ -85,7 +85,7 @@ export class Home {
     const fileHandle = await (dir as any).getFileHandle(this.STATUS_FILENAME, { create: true });
     const writable = await fileHandle.createWritable();
     try {
-      await writable.write(JSON.stringify(map, null, 2)); // bonitinho, indentado
+      await writable.write(JSON.stringify(map, null, 2));
     } finally {
       await writable.close();
     }
@@ -280,34 +280,6 @@ export class Home {
       // ===== Sempre remover os enviados da lista visível =====
       this.files.update((list) => list.filter((f) => !selectedNames.includes(f.name)));
       this.clearSelection();
-
-      // ===== Agora verificar os NÃO enviados e perguntar se deseja descartá-los =====
-      if (this.originDirHandle) {
-        const remaining = this.files(); // já sem os enviados
-
-        if (remaining.length > 0) {
-          const shouldDiscardRest = window.confirm('Deseja descartar os itens não enviados?');
-
-          if (shouldDiscardRest) {
-            const map = await this.loadStatusMapFromFolder(this.originDirHandle);
-
-            for (const item of remaining) {
-              const file = await item.handle.getFile();
-              const key = this.makeStatusKey(item.name, file.size, file.lastModified);
-              map[key] = 'discarded';
-            }
-
-            await this.saveStatusMapToFolder(this.originDirHandle, map);
-
-            // Remove todos os restantes da lista
-            this.files.set([]);
-            this.clearSelection();
-          }
-          // Se o usuário clicar em "Cancelar":
-          // - os enviados JÁ foram marcados como 'sent' e já saíram da lista
-          // - os não enviados continuam na lista sem qualquer mudança de status
-        }
-      }
     } catch (err) {
       if ((err as any)?.name === 'AbortError') {
         console.warn('Envio cancelado pelo usuário.');
