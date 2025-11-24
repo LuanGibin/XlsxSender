@@ -228,9 +228,7 @@ export class Home {
         const pickedDest: any = await (window as any).showDirectoryPicker({
           id: 'dest-cloud-folder',
         });
-
         this.destDirHandle = pickedDest;
-
         this.pickedDestinationFolderName.set((pickedDest as any).name ?? '(destino)');
       }
 
@@ -242,6 +240,7 @@ export class Home {
         return;
       }
 
+      // ===== Copiar arquivos selecionados =====
       let ok = 0,
         fail = 0;
       for (const item of selected) {
@@ -258,42 +257,56 @@ export class Home {
       console.log(`Concluído. Sucesso: ${ok}, Falhas: ${fail}.`);
       console.log('botão funcionando');
 
-      // ===== Atualizar status JSON na pasta de origem =====
+      // ===== Atualizar status JSON na pasta de origem para os ENVIADOS =====
       if (!this.originDirHandle) {
         console.warn(
           'originDirHandle não definido; não foi possível salvar status na pasta de origem.'
         );
       } else {
+        // 1) Carrega o mapa atual
         const map = await this.loadStatusMapFromFolder(this.originDirHandle);
+
+        // 2) Marca TODOS os selecionados como 'sent'
         for (const item of selected) {
           const file = await item.handle.getFile();
           const key = this.makeStatusKey(item.name, file.size, file.lastModified);
           map[key] = 'sent';
         }
 
-        // Verificar itens NÃO enviados e perguntar se quer descartá-los
-        const remaining = this.files().filter((f) => !selectedNames.includes(f.name));
+        // 3) Salva imediatamente o JSON (independente de descartar ou não o resto)
+        await this.saveStatusMapToFolder(this.originDirHandle, map);
+      }
+
+      // ===== Sempre remover os enviados da lista visível =====
+      this.files.update((list) => list.filter((f) => !selectedNames.includes(f.name)));
+      this.clearSelection();
+
+      // ===== Agora verificar os NÃO enviados e perguntar se deseja descartá-los =====
+      if (this.originDirHandle) {
+        const remaining = this.files(); // já sem os enviados
 
         if (remaining.length > 0) {
           const shouldDiscardRest = window.confirm('Deseja descartar os itens não enviados?');
+
           if (shouldDiscardRest) {
+            const map = await this.loadStatusMapFromFolder(this.originDirHandle);
+
             for (const item of remaining) {
               const file = await item.handle.getFile();
               const key = this.makeStatusKey(item.name, file.size, file.lastModified);
               map[key] = 'discarded';
             }
-            const namesToRemove = new Set([...selectedNames, ...remaining.map((f) => f.name)]);
-            this.files.update((list) => list.filter((f) => !namesToRemove.has(f.name)));
-            this.clearSelection();
-            await this.saveStatusMapToFolder(this.originDirHandle, map);
-            return;
-          }
-        }
 
-        // Se não descartou os restantes, remove apenas os enviados
-        await this.saveStatusMapToFolder(this.originDirHandle, map);
-        this.files.update((list) => list.filter((f) => !selectedNames.includes(f.name)));
-        this.clearSelection();
+            await this.saveStatusMapToFolder(this.originDirHandle, map);
+
+            // Remove todos os restantes da lista
+            this.files.set([]);
+            this.clearSelection();
+          }
+          // Se o usuário clicar em "Cancelar":
+          // - os enviados JÁ foram marcados como 'sent' e já saíram da lista
+          // - os não enviados continuam na lista sem qualquer mudança de status
+        }
       }
     } catch (err) {
       if ((err as any)?.name === 'AbortError') {
